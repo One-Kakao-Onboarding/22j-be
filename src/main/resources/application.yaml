@@ -38,7 +38,7 @@ spring:
           api-key: ${common-secret.google.genai.api-key}
           text:
             options:
-              model: text-multilingual-embedding-002
+              model: gemini-embedding-001
 
   servlet.multipart:
     enabled: true
