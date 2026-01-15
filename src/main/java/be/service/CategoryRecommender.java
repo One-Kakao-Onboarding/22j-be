@@ -2,6 +2,7 @@ package be.service;
 
 import be.domain.*;
 import java.util.*;
+import java.util.concurrent.atomic.*;
 import lombok.*;
 import lombok.extern.slf4j.*;
 import org.springframework.ai.chat.client.*;
@@ -17,6 +18,9 @@ public class CategoryRecommender {
     private final CategoryRecoder categoryRecoder;
 
     private static final String systemPrompt;
+    
+    // 영구 캐시: 애플리케이션 실행 중 무한히 유지
+    private final AtomicReference<List<Category>> cachedRecommendations = new AtomicReference<>();
 
     static {
         StringBuilder systemPromptBuilder = new StringBuilder(String.format(
@@ -42,7 +46,25 @@ public class CategoryRecommender {
         systemPrompt = systemPromptBuilder.toString();
     }
 
+    /**
+     * 캐시를 우선 조회하고, 없으면 LLM 호출하여 캐시 갱신
+     */
     public List<Category> recommendCategory() {
+        List<Category> cached = cachedRecommendations.get();
+        
+        if (cached != null) {
+            log.info("Returning cached category recommendations: {}", cached);
+            return cached;
+        }
+        
+        log.info("Cache miss - generating new category recommendations");
+        return refreshRecommendations();
+    }
+    
+    /**
+     * LLM을 호출하여 캐시를 갱신 (비동기 백그라운드 작업에서 호출)
+     */
+    public List<Category> refreshRecommendations() {
         String visitCount = categoryRecoder.representVisitCount();
         String latestAdded = categoryRecoder.representLatestAddedCategory();
 
@@ -53,7 +75,7 @@ public class CategoryRecommender {
                 visitCount, latestAdded
         );
 
-        return chatClient.prompt()
+        List<Category> recommendations = chatClient.prompt()
                 .system(s -> s.text(systemPrompt)
                 )
                 .user(u -> u.text(userInputPrompt)
@@ -61,13 +83,19 @@ public class CategoryRecommender {
                 .call()
                 .entity(new ParameterizedTypeReference<>() {
                 });
+        
+        // 캐시 업데이트
+        cachedRecommendations.set(recommendations);
+        log.info("Updated category recommendation cache: {}", recommendations);
+        
+        return recommendations;
     }
 
     private String buildUserInputPrompt(String... userBehaviors) {
 
         StringBuilder userInputPromptBuilder = new StringBuilder("""
                 사용자의 행동 정보를 제공하겠습니다.
-                정보를 통해 카테고리 최대 5 개를 추천해주세요.
+                정보를 통해 카테고리 최소 7개 최대 10개를 추천 순으로 제공해주세요.
                 
                 """);
 

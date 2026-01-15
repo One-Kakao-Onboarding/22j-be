@@ -60,6 +60,7 @@ public class FileSummarizer {
         userInputPrompt = """
                 다음 제공된 정보는 문서의 정보입니다.
                 문서의 내용을 분석해,** 한국어로 한 줄로 요약해 주세요.**
+                문장의 길이가 20자를 초과하면 안됩니다.
                 """;
     }
 

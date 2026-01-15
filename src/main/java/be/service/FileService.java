@@ -28,6 +28,7 @@ public class FileService {
     private final TagRepository tagRepository;
     private final FileVectorRepository fileVectorRepository;
     private final CategoryRecoder categoryRecoder;
+    private final CategoryRecommender categoryRecommender;
 
     public List<File> getFiles(Category category, FileType fileType) {
 
@@ -154,6 +155,17 @@ public class FileService {
         for (Category category : categories)    {
             categoryRecoder.recordAddedCategory(category);
         }
+
+        // 11. 비동기로 카테고리 추천 캐시 갱신 (사용자 응답에 영향 없음)
+        CompletableFuture.runAsync(() -> {
+            try {
+                log.info("Background task: Refreshing category recommendation cache");
+                categoryRecommender.refreshRecommendations();
+                log.info("Background task: Successfully refreshed category recommendation cache");
+            } catch (Exception e) {
+                log.error("Background task: Failed to refresh category recommendation cache", e);
+            }
+        });
 
         return savedFile;
     }
