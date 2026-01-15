@@ -26,6 +26,7 @@ public class FileService {
     private final FileSummarizer fileSummarizer;
     private final FileTagExtractor fileTagExtractor;
     private final TagRepository tagRepository;
+    private final FileVectorRepository fileVectorRepository;
 
     public List<File> getFiles(Category category, FileType fileType) {
 
@@ -62,14 +63,19 @@ public class FileService {
         fileIO.transferMultipartFile(multipartFile, newFileName);
         log.info("Saved file with content type: {}", fileMediaType);
 
-        // 3. 임시 File 엔티티 생성 (LLM 분석용)
+        // 3. 미디어 타입 기반으로 FileType 추출
+        FileType fileType = FileType.fromMediaType(fileMediaType);
+        log.info("Resolved file type: {}", fileType);
+
+        // 4. 임시 File 엔티티 생성 (LLM 분석용)
         File tempFile = File.builder()
                 .originalFileName(originalFileName)
                 .savedFileName(newFileName)
                 .fileMediaType(fileMediaType)
+                .fileType(fileType)
                 .build();
 
-        // 4. LLM을 활용한 메타데이터 추출 (병렬 실행)
+        // 5. LLM을 활용한 메타데이터 추출 (병렬 실행)
         CompletableFuture<String> summaryFuture = CompletableFuture.supplyAsync(
                 () -> fileSummarizer.summarize(tempFile)
         );
@@ -92,7 +98,7 @@ public class FileService {
         log.info("Generated summary: {}", summary);
         log.info("Generated tags: {}", tagDescriptions);
 
-        // 5. 태그 생성
+        // 6. 태그 생성
         List<Tag> tags = new ArrayList<>();
         for (String tagDescription : tagDescriptions) {
             Tag tag = tagRepository.findByDescription(tagDescription)
@@ -102,15 +108,16 @@ public class FileService {
             tags.add(tag);
         }
 
-        // 6. File 엔티티 생성 및 메타데이터 enrichment
+        // 7. File 엔티티 생성 및 메타데이터 enrichment
         File file = File.builder()
                 .originalFileName(originalFileName)
                 .savedFileName(newFileName)
                 .fileMediaType(fileMediaType)
+                .fileType(fileType)
                 .build();
         file.enrichMetadata(summary, categories, tags);
 
-        // 7. File 엔티티 저장
+        // 8. File 엔티티 저장
         File savedFile;
         try {
             savedFile = fileRepository.save(file);
@@ -123,7 +130,8 @@ public class FileService {
             log.warn(errMsg, ex);
             throw ex;
         }
-
+        // 9. 파일 벡터화 저장
+        fileVectorRepository.save(savedFile);
         log.info("Successfully saved file with id: {}", savedFile.getId());
         return savedFile;
     }
