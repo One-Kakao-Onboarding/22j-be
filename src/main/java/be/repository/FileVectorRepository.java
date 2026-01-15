@@ -2,6 +2,7 @@ package be.repository;
 
 import be.domain.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -13,6 +14,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Slf4j
 @Repository
 @RequiredArgsConstructor
 public class FileVectorRepository {
@@ -81,6 +83,14 @@ public class FileVectorRepository {
         metadata.put("fileType", file.getFileType().name());
         metadata.put("fileOverview", file.getFileOverview());
         
+        // 날짜 정보 저장
+        if (file.getCreatedAt() != null) {
+            metadata.put("createdAt", file.getCreatedAt().toString());
+        }
+        if (file.getModifiedAt() != null) {
+            metadata.put("modifiedAt", file.getModifiedAt().toString());
+        }
+        
         // 카테고리를 문자열 리스트로 저장
         if (file.getCategories() != null && !file.getCategories().isEmpty()) {
             List<String> categoryNames = file.getCategories().stream()
@@ -136,11 +146,14 @@ public class FileVectorRepository {
     }
 
     private File reconstructFileFromMetadata(Map<String, Object> metadata) {
+        Long id = getLongFromMetadata(metadata, "id");
         String originalFileName = (String) metadata.get("originalFileName");
         String savedFileName = (String) metadata.get("savedFileName");
         String fileMediaType = (String) metadata.get("fileMediaType");
         String fileTypeStr = (String) metadata.get("fileType");
         String fileOverview = (String) metadata.get("fileOverview");
+        String createdAtStr = (String) metadata.get("createdAt");
+        String modifiedAtStr = (String) metadata.get("modifiedAt");
         
         FileType fileType = fileTypeStr != null ? FileType.valueOf(fileTypeStr) : FileType.ETC;
         
@@ -180,8 +193,13 @@ public class FileVectorRepository {
                 .categories(categories)
                 .build();
         
-        // 태그는 별도로 설정 (enrichMetadata가 아닌 직접 설정)
+        // 태그는 별도로 설정
         file.enrichMetadata(fileOverview, categories, tags);
+        
+        // id와 날짜 설정
+        java.time.LocalDateTime createdAt = createdAtStr != null ? java.time.LocalDateTime.parse(createdAtStr) : null;
+        java.time.LocalDateTime modifiedAt = modifiedAtStr != null ? java.time.LocalDateTime.parse(modifiedAtStr) : null;
+        file.setIdAndTimestamps(id, createdAt, modifiedAt);
         
         return file;
     }

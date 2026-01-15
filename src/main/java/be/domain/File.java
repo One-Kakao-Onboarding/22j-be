@@ -5,7 +5,6 @@ import lombok.*;
 import org.springframework.http.*;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 @Entity
@@ -68,6 +67,24 @@ public class File extends BaseTimeEntity implements EntityId<Long> {
         this.fileOverview = fileOverview;
         this.categories = category;
         this.tags = tags;
+    }
+
+    public void setIdAndTimestamps(Long id, java.time.LocalDateTime createdAt, java.time.LocalDateTime modifiedAt) {
+        this.id = id;
+        try {
+            if (createdAt != null) {
+                java.lang.reflect.Field createdAtField = AuditingCreation.class.getDeclaredField("createdAt");
+                createdAtField.setAccessible(true);
+                createdAtField.set(this, createdAt);
+            }
+            if (modifiedAt != null) {
+                java.lang.reflect.Field modifiedAtField = BaseTimeEntity.class.getDeclaredField("modifiedAt");
+                modifiedAtField.setAccessible(true);
+                modifiedAtField.set(this, modifiedAt);
+            }
+        } catch (Exception e) {
+            // 날짜 설정 실패 시 무시
+        }
     }
 
 }
