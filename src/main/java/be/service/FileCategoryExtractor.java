@@ -50,7 +50,7 @@ public class FileCategoryExtractor {
 
     public List<Category> extractCategory(File file) {
 
-        return chatClient.prompt()
+        List<Category> extractedCategories = chatClient.prompt()
                 .system(s -> s.text(systemPrompt)
                 )
                 .user(u -> u.text(userInputPrompt)
@@ -59,6 +59,19 @@ public class FileCategoryExtractor {
                 .call()
                 .entity(new ParameterizedTypeReference<>() {
                 });
+
+        // structured output을 검증하여 유효한 카테고리만 필터링
+        List<Category> validCategories = extractedCategories.stream()
+                .filter(Objects::nonNull)
+                .filter(category -> Category.resolveOrNull(category.name()) != null)
+                .toList();
+
+        // 유효한 카테고리가 없으면 ETC로 처리
+        if (validCategories.isEmpty()) {
+            return List.of(Category.ETC);
+        }
+
+        return validCategories;
     }
 
     private MimeType getMimeType(File file) {
