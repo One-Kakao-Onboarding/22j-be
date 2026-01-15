@@ -23,7 +23,11 @@ public class ContentTypeValidator {
             return true;
         }
 
-        if (contentType.startsWith("image/")) {
+        if (contentType.startsWith("image/png")) {
+            return true;
+        }
+
+        if (contentType.startsWith("image/jpeg")) {
             return true;
         }
 
