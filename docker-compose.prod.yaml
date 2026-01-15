@@ -6,7 +6,7 @@ services:
     image: jbw9964/hackathon:${IMAGE_TAG}
 
     ports:
-      - '80:8080'
+      - '8080:8080'
 
     environment:
       - "SPRING_PROFILES_ACTIVE=prod"
