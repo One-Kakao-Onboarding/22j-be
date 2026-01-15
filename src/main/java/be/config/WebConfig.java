@@ -14,6 +14,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "http://localhost:5173",
                         "http://api.hackathon.astor-dev.com",
                         "https://api.hackathon.astor-dev.com",
+                        "https://one-kakao-onboarding.github.io",
                         "https://hackathon.astor-dev.com",
                         "https://astor-dev.github.io"
                 )
