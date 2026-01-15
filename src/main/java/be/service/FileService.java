@@ -27,6 +27,7 @@ public class FileService {
     private final FileTagExtractor fileTagExtractor;
     private final TagRepository tagRepository;
     private final FileVectorRepository fileVectorRepository;
+    private final CategoryRecoder categoryRecoder;
 
     public List<File> getFiles(Category category, FileType fileType) {
 
@@ -36,10 +37,12 @@ public class FileService {
             find = fileRepository.findAllBy();
         } else if (fileType == null) {
             find = fileRepository.findByCategory(category);
+            categoryRecoder.increaseVisitCount(category);
         } else if (category == null) {
             find = fileRepository.findByFileType(fileType);
         } else {
             find = fileRepository.findByCategoryAndFileType(category, fileType);
+            categoryRecoder.increaseVisitCount(category);
         }
 
         return find;
@@ -146,6 +149,12 @@ public class FileService {
         // 9. 파일 벡터화 저장
         fileVectorRepository.save(savedFile);
         log.info("Successfully saved file with id: {}", savedFile.getId());
+
+        // 10. 카테고리 생성된거 기록 (추천용)
+        for (Category category : categories)    {
+            categoryRecoder.recordAddedCategory(category);
+        }
+
         return savedFile;
     }
 }
