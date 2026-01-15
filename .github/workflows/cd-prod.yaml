@@ -1,0 +1,78 @@
+name: CD prod
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_TAG: '${{ github.ref_name }}-${{ github.sha }}'
+
+jobs:
+  down-service:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Down service container
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_KEY }}
+          script: |
+            docker compose -f 'docker-compose.prod.yaml' down 'application' || true
+
+  push-image:
+    uses: ./.github/workflows/push-docker-image.yaml
+    with:
+      tag: '${{ github.ref_name }}-${{ github.sha }}'
+      docker-file-name: 'Dockerfile'
+    secrets:
+      docker-hub-id: ${{ secrets.DOCKER_HUB_ID }}
+      docker-hub-pw: ${{ secrets.DOCKER_HUB_PW }}
+      prod-secret: ${{ secrets.PROD_SECRET }}
+      prod-db: ${{ secrets.PROD_DB }}
+      ssl-key: ${{ secrets.SSL_KEY }}
+      ssl-file-name: ${{ secrets.SSL_FILE_NAME }}
+
+  up-service:
+    runs-on: ubuntu-latest
+    needs:
+      - down-service
+      - push-image
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Pull docker image
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_KEY }}
+          script: |
+            echo ${{ secrets.DOCKER_HUB_PW }} | \
+            docker login -u ${{ secrets.DOCKER_HUB_ID }} --password-stdin
+            docker pull 'jbw9964/hackathon:${{ env.IMAGE_TAG }}'
+            docker logout
+
+      - name: Copy compose
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_KEY }}
+          overwrite: true
+          source: 'docker-compose.prod.yaml'
+          target: '/home/${{ secrets.PROD_USERNAME }}'
+
+      - name: Compose service
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.PROD_HOST }}
+          username: ${{ secrets.PROD_USERNAME }}
+          key: ${{ secrets.PROD_KEY }}
+          envs: IMAGE_TAG
+          script: |
+            docker compose -f 'docker-compose.prod.yaml' up -d

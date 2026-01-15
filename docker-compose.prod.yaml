@@ -1,0 +1,63 @@
+name: prod-dev-compose
+
+services:
+  application:
+    container_name: application
+    image: jbw9964/hackathon:${IMAGE_TAG}
+
+    ports:
+      - '443:8080'
+
+    environment:
+      - "SPRING_PROFILES_ACTIVE=prod"
+
+    volumes:
+      - ./file-data:/hackathon/file-data
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  mysql:
+    container_name: mysql
+    image: mysql:9
+    restart: no
+    ports:
+      - "3306:3306"
+
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: db-local
+      TZ: 'Asia/Seoul'
+
+    volumes:
+      - ./local/mysql:/var/lib/mysql
+
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  weaviate:
+    container_name: weaviate
+    command:
+      - --host
+      - 0.0.0.0
+      - --port
+      - '8080'
+      - --scheme
+      - http
+    image: cr.weaviate.io/semitechnologies/weaviate:1.34.8
+    ports:
+      - '8081:8080'
+      - '50051:50051'
+    volumes:
+      - ./local/weaviate:/var/lib/weaviate
+    restart: on-failure:0
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'true'
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      ENABLE_MODULES: ''
+      CLUSTER_HOSTNAME: 'node1'

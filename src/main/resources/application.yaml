@@ -1,0 +1,86 @@
+server:
+  ssl:
+    key-store: ${common-secret.ssl.key-store}
+    key-store-type: ${common-secret.ssl.key-store-type}
+    key-alias: ${common-secret.ssl.key-alias}
+    key-store-password: ${common-secret.ssl.key-store-password}
+
+spring:
+  application.name: 22j-be
+  threads.virtual.enabled: true
+
+  profiles:
+    default: local
+    group:
+      local:
+        - local-db
+        - common-secret
+
+      prod:
+        - prod-db
+        - prod-secret
+
+  datasource:
+    url: ${db.url}
+    username: ${db.username}
+    password: ${db.password}
+
+  jpa:
+    open-in-view: true
+    properties:
+      hibernate:
+        format_sql: true
+        highlight_sql: true
+        use_sql_comments: true
+        globally_quoted_identifiers: true
+
+  ai:
+    google:
+      genai:
+        api-key: ${common-secret.google.genai.api-key}
+        chat:
+          options:
+            model: gemini-3-flash-preview
+        embedding:
+          api-key: ${common-secret.google.genai.api-key}
+          text:
+            options:
+              model: text-embedding-004
+
+  servlet.multipart:
+    enabled: true
+    location: ${common-secret.file.temp-directory}
+    file-size-threshold: 0B
+    max-file-size: ${common-secret.file.max-size}
+    max-request-size: ${common-secret.file.max-size}
+    strict-servlet-compliance: true
+    resolve-lazily: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include:
+          - health
+          - info
+
+springdoc:
+  api-docs.groups.enabled: true
+
+  swagger-ui:
+    enabled: true
+    path: /api-doc
+    tags-sorter: alpha
+    operations-sorter: alpha
+    display-request-duration: true
+
+mdc-key:
+  request-id: request-id
+
+logging:
+  pattern:
+    dateformat: yyyy-MM-dd'T'HH:mm:ss.SSSz,Asia/Seoul
+    level: '[RID:%36X{${mdc-key.request-id}}]%5p'
+
+  level:
+    sql: debug

@@ -1,0 +1,101 @@
+name: Push docker image
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        type: string
+        required: true
+        default: '${{ github.ref_name }}-${{ github.sha }}'
+
+      docker-file-name:
+        type: string
+        required: true
+
+    secrets:
+      docker-hub-id:
+        required: true
+        description: 'DockerHub ID'
+
+      docker-hub-pw:
+        required: true
+        description: 'DockerHub PW'
+
+      prod-secret:
+        required: true
+        description: 'PROD_SECRET'
+
+      prod-db:
+        required: true
+        description: 'PROD_DB'
+
+      ssl-key:
+        required: true
+        description: 'SSL_KEY'
+
+      ssl-file-name:
+        required: true
+        description: 'SSL_FILE_NAME'
+
+
+env:
+  profile-dir: './src/main/resources'
+  image-name: 'jbw9964/hackathon'
+  dockerfile-dir: './'
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup prod secrets profile
+        shell: bash
+        run: |
+          cat <<'EOF' > "${{ env.profile-dir }}/application-prod-secret.yaml"
+          ${{ secrets.prod-secret }}
+          EOF
+
+      - name: Setup prod db profile
+        shell: bash
+        run: |
+          cat <<'EOF' > "${{ env.profile-dir }}/application-prod-db.yaml"
+          ${{ secrets.prod-db }}
+          EOF
+
+      - name: Restore SSL keystore
+        shell: bash
+        run: |
+          echo "${{ secrets.ssl-key }}" | base64 --decode > ${{ env.profile-dir }}/${{ secrets.ssl-file-name }}
+
+      - name: Build application
+        uses: ./.github/workflows/composite/build-application
+
+      - name: Setup docker buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: DockerHub login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.docker-hub-id }}
+          password: ${{ secrets.docker-hub-pw }}
+          logout: 'true'
+
+      - name: Create metadata
+        uses: docker/metadata-action@v5
+        id: meta
+        with:
+          images: ${{ env.image-name }}
+          tags: ${{ inputs.tag }}
+
+      - name: Build & push image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ env.dockerfile-dir }}
+          file: ${{ inputs.docker-file-name }}
+          push: 'true'
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
