@@ -37,6 +37,21 @@ public class FileController {
         return ApiResponse.success(resp);
     }
 
+    @GetMapping("/search")
+    public ApiResponse<List<File>> searchFiles(
+            @RequestParam String query,
+            @RequestParam(required = false) Integer topK,
+            @RequestParam(required = false) Double similarityThreshold,
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String type
+    ) {
+        Category cat = Category.resolveOrNull(category);
+        FileType fileType = FileType.resolveOrNull(type);
+        
+        List<File> results = fileService.searchFiles(query, topK, similarityThreshold, cat, fileType);
+        return ApiResponse.success(results);
+    }
+
     @GetMapping("/{file-id:\\d+}")
     public ResponseEntity<byte[]> getFile(
             @PathVariable("file-id") Long fileId

@@ -52,6 +52,19 @@ public class FileService {
         return new FileInfo(find.getId(), find.getFileMediaType(), find.getSavedFileName());
     }
 
+    public List<File> searchFiles(String query, Integer topK, Double similarityThreshold, Category category, FileType fileType) {
+        int k = (topK != null && topK > 0) ? topK : 10;
+        double threshold = (similarityThreshold != null && similarityThreshold >= 0 && similarityThreshold <= 1) 
+                ? similarityThreshold : 0.7;
+        
+        log.info("Searching files with query: {}, topK: {}, threshold: {}, category: {}, fileType: {}", 
+                query, k, threshold, category, fileType);
+        List<File> results = fileVectorRepository.searchSimilarFiles(query, k, threshold, category, fileType);
+        log.info("Found {} similar files", results.size());
+        
+        return results;
+    }
+
     @Transactional
     public File saveFile(MultipartFile multipartFile) {
         // 1. 파일 메타데이터 생성
